@@ -1,15 +1,18 @@
 env: "local"
+
 server:
   port: ":8080"
+
 postgres:
   dsn: "postgres://user:password@localhost:5432/dbname?sslmode=disable"
+
 rabbitmq:
   url: "amqp://guest:guest@localhost:5672/"
 
 telegram:
-  token: "8572584315:AAFw41_OFsbvkvbuzpF9JXwWdSCRD1tw9Pw"
-  chat_id: "860925468"
-  
+  token: "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+  chat_id: 123456789
+
 redis:
   addr: "localhost:6379"
   password: ""
