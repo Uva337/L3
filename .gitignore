@@ -1,0 +1,10 @@
+/notification-service
+*.exe
+*.out
+
+/uploads/
+
+/configs/config.yaml
+.env
+
+.DS_Store
