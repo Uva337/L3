@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Древовидные комментарии</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
+    <style>
+        :root { --primary: #10b981; --bg: #f3f4f6; --card: #ffffff; --border: #e5e7eb; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #1f2937; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: var(--primary); text-align: center; }
+        .card { background: var(--card); padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .btn-danger { background: #ef4444; }
+        .btn-small { padding: 4px 8px; font-size: 12px; margin-right: 5px; }
+        .comment-node { margin-top: 10px; padding: 10px; border-left: 3px solid var(--primary); background: #fafafa; border-radius: 0 6px 6px 0; }
+        .comment-children { margin-left: 30px; border-left: 1px dashed #ccc; padding-left: 10px; }
+        .meta { font-size: 0.8rem; color: #6b7280; margin-bottom: 5px; }
+        .author { font-weight: bold; color: #111827; }
+        .search-box { display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Компонент одного комментария (рекурсивный!)
+        function CommentNode({ comment, onReply, onDelete }) {
+            const [showReplyForm, setShowReplyForm] = useState(false);
+            const [replyAuthor, setReplyAuthor] = useState('');
+            const [replyText, setReplyText] = useState('');
+
+            const handleReplySubmit = (e) => {
+                e.preventDefault();
+                onReply(comment.id, replyAuthor, replyText);
+                setReplyText('');
+                setShowReplyForm(false);
+            };
+
+            return (
+                <div className="comment-node">
+                    <div className="meta">
+                        <span className="author">{comment.author}</span> • {new Date(comment.created_at).toLocaleString()}
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>{comment.text}</div>
+                    
+                    <div style={{ marginBottom: '10px' }}>
+                        <button className="btn-small" onClick={() => setShowReplyForm(!showReplyForm)}>Ответить</button>
+                        <button className="btn-small btn-danger" onClick={() => onDelete(comment.id)}>Удалить</button>
+                    </div>
+
+                    {showReplyForm && (
+                        <form onSubmit={handleReplySubmit} style={{ marginTop: '10px', padding: '10px', background: '#fff', borderRadius: '4px' }}>
+                            <input placeholder="Ваше имя" value={replyAuthor} onChange={e => setReplyAuthor(e.target.value)} />
+                            <textarea placeholder="Текст ответа..." value={replyText} onChange={e => setReplyText(e.target.value)} required />
+                            <button type="submit" className="btn-small">Отправить ответ</button>
+                        </form>
+                    )}
+
+                    {/* РЕКУРСИЯ: Если есть вложенные ответы, рисуем их с отступом */}
+                    {comment.children && comment.children.length > 0 && (
+                        <div className="comment-children">
+                            {comment.children.map(child => (
+                                <CommentNode key={child.id} comment={child} onReply={onReply} onDelete={onDelete} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Главное приложение
+        function App() {
+            const [trees, setTrees] = useState([]);
+            const [search, setSearch] = useState('');
+            const [newAuthor, setNewAuthor] = useState('');
+            const [newText, setNewText] = useState('');
+
+            // Загрузка корневых комментариев и их деревьев
+            const loadComments = async () => {
+                const res = await fetch('/comments');
+                const roots = await res.json();
+                
+                // Для красоты сразу подгрузим деревья для всех корней
+                const fullTrees = await Promise.all(
+                    roots.map(async (root) => {
+                        const treeRes = await fetch(`/comments?parent=${root.id}`);
+                        const treeData = await treeRes.json();
+                        return treeData[0]; // Наш API отдает массив с одним корнем-деревом
+                    })
+                );
+                setTrees(fullTrees);
+            };
+
+            useEffect(() => { loadComments(); }, []);
+
+            const handleSearch = async (e) => {
+                e.preventDefault();
+                if (!search) {
+                    loadComments();
+                    return;
+                }
+                const res = await fetch(`/comments?search=${encodeURIComponent(search)}`);
+                const searchResults = await res.json();
+
+                // МАГИЯ ЗДЕСЬ: Подгружаем ветки ответов для каждого найденного комментария
+                const fullTrees = await Promise.all(
+                    searchResults.map(async (item) => {
+                        const treeRes = await fetch(`/comments?parent=${item.id}`);
+                        const treeData = await treeRes.json();
+                        return treeData[0] || item; 
+                    })
+                );
+                
+                setTrees(fullTrees);
+            };
+
+            const handleCreateRoot = async (e) => {
+                e.preventDefault();
+                await fetch('/comments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ author: newAuthor, text: newText })
+                });
+                setNewText('');
+                loadComments();
+            };
+
+            const handleReply = async (parentId, author, text) => {
+                await fetch('/comments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parent_id: parentId, author, text })
+                });
+                loadComments();
+            };
+
+            const handleDelete = async (id) => {
+                if(confirm('Точно удалить комментарий и ВСЕ ответы на него?')) {
+                    await fetch(`/comments/${id}`, { method: 'DELETE' });
+                    loadComments();
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>💬 Обсуждение</h1>
+
+                    <div className="card">
+                        <form className="search-box" onSubmit={handleSearch}>
+                            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по словам..." />
+                            <button type="submit">Найти</button>
+                            <button type="button" style={{background: '#6b7280'}} onClick={() => { setSearch(''); loadComments(); }}>Сброс</button>
+                        </form>
+                    </div>
+
+                    <div className="card">
+                        <h3>Написать новый комментарий</h3>
+                        <form onSubmit={handleCreateRoot}>
+                            <input placeholder="Ваше имя" value={newAuthor} onChange={e => setNewAuthor(e.target.value)} />
+                            <textarea placeholder="Текст комментария..." value={newText} onChange={e => setNewText(e.target.value)} required rows="3" />
+                            <button type="submit">Отправить</button>
+                        </form>
+                    </div>
+
+                    <div>
+                        {trees.length === 0 ? <p>Комментариев пока нет.</p> : 
+                            trees.map(tree => (
+                                <CommentNode key={tree.id} comment={tree} onReply={handleReply} onDelete={handleDelete} />
+                            ))
+                        }
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

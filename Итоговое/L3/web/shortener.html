@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сокращатель ссылок</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
+
+    <style>
+        :root { --primary: #0984e3; --bg: #f5f6fa; --card: #ffffff; --text: #2d3436; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 40px 20px; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 20px; }
+        .card { background: var(--card); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; }
+        input { width: 100%; padding: 12px; border: 1px solid #dfe6e9; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        .result-box { margin-top: 15px; padding: 15px; background: #e3f2fd; border: 1px dashed var(--primary); border-radius: 8px; text-align: center; }
+        .link { font-size: 1.2rem; font-weight: bold; color: var(--primary); text-decoration: none; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .stat-card { background: #f1f2f6; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: bold; color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function App() {
+            // Состояния для создания ссылки
+            const [origUrl, setOrigUrl] = useState('');
+            const [alias, setAlias] = useState('');
+            const [shortData, setShortData] = useState(null);
+
+            // Состояния для аналитики
+            const [analyticsCode, setAnalyticsCode] = useState('');
+            const [analytics, setAnalytics] = useState(null);
+
+            const handleShorten = async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await fetch('/shorten', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ original_url: origUrl, custom_alias: alias })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setShortData(data);
+                        setOrigUrl(''); setAlias('');
+                    } else {
+                        alert(data.error);
+                    }
+                } catch (err) { alert('Ошибка сети'); }
+            };
+
+            const handleAnalytics = async (e) => {
+                e.preventDefault();
+                try {
+                    // Очищаем ввод от полного URL, если пользователь вставил его целиком
+                    let code = analyticsCode.replace('http://localhost:8080/s/', '').trim();
+                    const res = await fetch(`/analytics/${code}`);
+                    const data = await res.json();
+                    if (res.ok) {
+                        setAnalytics(data);
+                    } else {
+                        alert(data.error || 'Ссылка не найдена');
+                        setAnalytics(null);
+                    }
+                } catch (err) { alert('Ошибка сети'); }
+            };
+
+            return (
+                <div className="container">
+                    <h1>🔗 URL Shortener</h1>
+                    
+                    {/* Карточка создания */}
+                    <div className="card">
+                        <h2>Создать короткую ссылку</h2>
+                        <form onSubmit={handleShorten}>
+                            <label>Оригинальный длинный URL (с https://):</label>
+                            <input value={origUrl} onChange={e => setOrigUrl(e.target.value)} placeholder="https://google.com" required />
+                            
+                            <label>Кастомное имя (необязательно):</label>
+                            <input value={alias} onChange={e => setAlias(e.target.value)} placeholder="my-custom-link" />
+                            
+                            <button type="submit">✂️ Сократить</button>
+                        </form>
+
+                        {shortData && (
+                            <div className="result-box">
+                                <p>Ваша ссылка готова!</p>
+                                <a href={shortData.short_url} target="_blank" className="link">{shortData.short_url}</a>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Карточка аналитики */}
+                    <div className="card">
+                        <h2>📊 Аналитика переходов</h2>
+                        <form onSubmit={handleAnalytics}>
+                            <label>Введите короткий код или ссылку:</label>
+                            <input value={analyticsCode} onChange={e => setAnalyticsCode(e.target.value)} placeholder="Например: my-vk" required />
+                            <button type="submit">Показать статистику</button>
+                        </form>
+
+                        {analytics && (
+                            <div className="stats-grid">
+                                <div className="stat-card">
+                                    <div className="stat-value">{analytics.total_clicks}</div>
+                                    <div>Всего кликов</div>
+                                </div>
+                                <div className="stat-card" style={{wordBreak: 'break-all'}}>
+                                    <div style={{fontWeight: 'bold', marginBottom: '5px'}}>Оригинал:</div>
+                                    <a href={analytics.original_url} target="_blank">{analytics.original_url}</a>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Warehouse Control (RBAC & Audit)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; margin: 0; }
+        .header { background: #1e293b; color: white; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+        .auth-box { background: #334155; padding: 10px; border-radius: 6px; display: flex; gap: 10px; align-items: center;}
+        select, input, button { padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; }
+        button { background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold;}
+        button:hover { background: #2563eb; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; }
+        .btn-danger { background: #ef4444; }
+        .btn-warning { background: #f59e0b; }
+        .history-row { background: #f8fafc; font-family: monospace; font-size: 0.85em; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; color: white;}
+        .bg-insert { background: #10b981; }
+        .bg-update { background: #f59e0b; }
+        .bg-delete { background: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin: 0;">📦 Warehouse Control</h2>
+        <div class="auth-box">
+            <span>Авторизация:</span>
+            <input type="text" id="username" value="Ivan" placeholder="Имя пользователя">
+            <select id="userRole">
+                <option value="admin">Admin (Полный доступ)</option>
+                <option value="manager">Manager (Создание/Редактирование)</option>
+                <option value="viewer">Viewer (Только чтение)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h3>Добавить товар</h3>
+            <form id="addForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="name" placeholder="Название (напр. Гвозди)" required>
+                <input type="number" id="qty" placeholder="Кол-во" required style="width: 80px;">
+                <input type="number" id="price" step="0.01" placeholder="Цена ($)" required style="width: 100px;">
+                <button type="submit">Добавить</button>
+            </form>
+
+            <h3>Список товаров</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Кол-во</th>
+                        <th>Цена</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsTable">
+                    <tr><td colspan="4">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3 id="historyTitle">История изменений (Выберите товар)</h3>
+            <div id="historyContent" style="color: #64748b;">Нажмите "История" у любого товара слева.</div>
+        </div>
+    </div>
+
+    <script>
+        // Функция-обертка для fetch, которая автоматически подставляет наш "фейковый" JWT токен
+        async function fetchWithAuth(url, options = {}) {
+            const user = document.getElementById('username').value || 'Anonymous';
+            const role = document.getElementById('userRole').value;
+            
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user}:${role}`, // Тот самый токен, который ждет наш Middleware
+                ...options.headers
+            };
+
+            const response = await fetch(url, { ...options, headers });
+            
+            // Если Middleware нас заблокировал
+            if (response.status === 403) {
+                const data = await response.json();
+                alert(`⛔ Доступ запрещен!\nРоль '${role}' не имеет прав на это действие.\nСервер ответил: ${data.error}`);
+                throw new Error("Forbidden");
+            }
+            return response;
+        }
+
+        async function loadItems() {
+            try {
+                const res = await fetchWithAuth('/api/warehouse/items');
+                if (!res.ok) return;
+                const items = await res.json();
+                
+                const tbody = document.getElementById('itemsTable');
+                if (items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4">Склад пуст.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = items.map(i => `
+                    <tr>
+                        <td><b>${i.name}</b></td>
+                        <td>${i.quantity} шт.</td>
+                        <td>$${i.price.toFixed(2)}</td>
+                        <td style="display:flex; gap:5px;">
+                            <button onclick="loadHistory('${i.id}', '${i.name}')">История</button>
+                            <button class="btn-warning" onclick="editItem('${i.id}', '${i.name}')">Изменить</button>
+                            <button class="btn-danger" onclick="deleteItem('${i.id}')">Удалить</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.log(e); // Ошибка 403 обработается внутри fetchWithAuth
+            }
+        }
+
+        document.getElementById('addForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('name').value,
+                quantity: parseInt(document.getElementById('qty').value),
+                price: parseFloat(document.getElementById('price').value)
+            };
+            
+            try {
+                await fetchWithAuth('/api/warehouse/items', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                e.target.reset();
+                loadItems();
+            } catch (e) {}
+        };
+
+        async function deleteItem(id) {
+            if(!confirm('Удалить товар?')) return;
+            try {
+                await fetchWithAuth(`/api/warehouse/items/${id}`, { method: 'DELETE' });
+                loadItems();
+            } catch (e) {}
+        }
+
+        async function editItem(id, currentName) {
+            const newQty = prompt(`Введите новое количество для '${currentName}':`);
+            if(!newQty) return;
+            const newPrice = prompt(`Введите новую цену для '${currentName}':`);
+            if(!newPrice) return;
+
+            try {
+                await fetchWithAuth(`/api/warehouse/items/${id}`, { 
+                    method: 'PUT',
+                    body: JSON.stringify({ name: currentName, quantity: parseInt(newQty), price: parseFloat(newPrice) })
+                });
+                loadItems();
+            } catch (e) {}
+        }
+
+        async function loadHistory(id, name) {
+            document.getElementById('historyTitle').innerText = `История: ${name}`;
+            document.getElementById('historyContent').innerHTML = 'Загрузка логов из БД...';
+            
+            try {
+                const res = await fetchWithAuth(`/api/warehouse/items/${id}/history`);
+                const history = await res.json();
+                
+                if (history.length === 0) {
+                    document.getElementById('historyContent').innerHTML = 'История пуста.';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Действие</th><th>Кто</th><th>Изменения (JSON)</th><th>Когда</th></tr></thead><tbody>';
+                
+                history.forEach(h => {
+                    let badgeClass = h.action === 'INSERT' ? 'bg-insert' : (h.action === 'UPDATE' ? 'bg-update' : 'bg-delete');
+                    
+                    // Показываем что изменилось
+                    let changes = '';
+                    if (h.action === 'UPDATE') {
+                        changes = `<span style="color:#ef4444">${h.old_data}</span> <br>⬇️<br> <span style="color:#10b981">${h.new_data}</span>`;
+                    } else if (h.action === 'INSERT') {
+                        changes = `<span style="color:#10b981">${h.new_data}</span>`;
+                    } else {
+                        changes = `<span style="color:#ef4444">${h.old_data}</span>`;
+                    }
+
+                    html += `
+                        <tr class="history-row">
+                            <td><span class="badge ${badgeClass}">${h.action}</span></td>
+                            <td><b>${h.changed_by}</b></td>
+                            <td style="max-width: 250px; overflow-wrap: break-word;">${changes}</td>
+                            <td>${new Date(h.changed_at).toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                document.getElementById('historyContent').innerHTML = html;
+            } catch (e) {}
+        }
+
+        // При смене роли сразу перезагружаем список (чтобы проверить доступ к просмотру)
+        document.getElementById('userRole').onchange = loadItems;
+        document.getElementById('username').onchange = loadItems;
+
+        loadItems();
+    </script>
+</body>
+</html>

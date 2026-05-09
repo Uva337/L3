@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Финансовый Дашборд</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f3f4f6; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h2, h3 { margin-top: 0; color: #1f2937; }
+        input, select, button { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
+        button { background: #3b82f6; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2563eb; }
+        .btn-danger { background: #ef4444; width: auto; padding: 5px 10px; font-size: 0.8em; margin: 0;}
+        .btn-success { background: #10b981; margin-top: 0;}
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; }
+        .income { color: #10b981; font-weight: bold; }
+        .expense { color: #ef4444; font-weight: bold; }
+        .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .metric { background: #f8fafc; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; }
+        .metric-val { font-size: 1.5em; font-weight: bold; color: #0f172a; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+        <h1>📊 Sales & Finance Tracker</h1>
+        <button class="btn-success" style="width: auto;" onclick="downloadCSV()">📥 Скачать CSV</button>
+    </div>
+
+    <div class="container">
+        <div>
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Добавить запись</h3>
+                <form id="addForm">
+                    <label>Тип операции</label>
+                    <select id="type">
+                        <option value="income">💰 Доход</option>
+                        <option value="expense">📉 Расход</option>
+                    </select>
+
+                    <label>Сумма ($)</label>
+                    <input type="number" id="amount" step="0.01" min="0" required placeholder="Например: 150.50">
+
+                    <label>Категория</label>
+                    <input type="text" id="category" required placeholder="Еда, Зарплата, Подписки...">
+
+                    <button type="submit">Добавить в базу</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Аналитика (SQL Агрегация)</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="date" id="dateFrom" title="С даты" onchange="loadAnalytics()">
+                    <input type="date" id="dateTo" title="По дату" onchange="loadAnalytics()">
+                </div>
+                
+                <div class="analytics-grid" id="analyticsResult">
+                    </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>История транзакций</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Категория</th>
+                        <th>Сумма</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="4">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const toDate = new Date();
+        const fromDate = new Date();
+        fromDate.setMonth(fromDate.getMonth() - 1);
+        document.getElementById('dateTo').value = toDate.toISOString().split('T')[0];
+        document.getElementById('dateFrom').value = fromDate.toISOString().split('T')[0];
+
+        async function loadItems() {
+            const res = await fetch('/items');
+            if (!res.ok) return;
+            const items = await res.json();
+            
+            const tbody = document.getElementById('tableBody');
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Записей нет. Добавьте первую!</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(i => `
+                <tr>
+                    <td style="font-size: 0.85em; color: #666;">${new Date(i.sale_date).toLocaleString()}</td>
+                    <td>${i.category}</td>
+                    <td class="${i.type}">${i.type === 'income' ? '+' : '-'}$${i.amount.toFixed(2)}</td>
+                    <td><button class="btn-danger" onclick="deleteItem('${i.id}')">Удалить</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAnalytics() {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            
+            const res = await fetch(`/analytics?from=${from}&to=${to}`);
+            if (!res.ok) return;
+            const data = await res.json();
+
+            document.getElementById('analyticsResult').innerHTML = `
+                <div class="metric"><div style="font-size:0.8em; color:#666;">Всего записей</div><div class="metric-val">${data.count}</div></div>
+                <div class="metric"><div style="font-size:0.8em; color:#666;">Оборот</div><div class="metric-val">$${data.total_sum.toFixed(2)}</div></div>
+                <div class="metric"><div style="font-size:0.8em; color:#666;">Средний чек</div><div class="metric-val">$${data.average.toFixed(2)}</div></div>
+                <div class="metric"><div style="font-size:0.8em; color:#666;">Медиана</div><div class="metric-val">$${data.median.toFixed(2)}</div></div>
+                <div class="metric" style="grid-column: span 2;"><div style="font-size:0.8em; color:#666;">90-й Перцентиль (Топ 10% чеков выше)</div><div class="metric-val">$${data.percentile_90.toFixed(2)}</div></div>
+            `;
+        }
+
+        document.getElementById('addForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                type: document.getElementById('type').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                category: document.getElementById('category').value
+            };
+            
+            await fetch('/items', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            e.target.reset();
+            loadItems();
+            loadAnalytics();
+        };
+
+        async function deleteItem(id) {
+            if(confirm('Точно удалить?')) {
+                await fetch(`/items/${id}`, { method: 'DELETE' });
+                loadItems();
+                loadAnalytics();
+            }
+        }
+
+        function downloadCSV() {
+            window.location.href = '/items?format=csv';
+        }
+
+        loadItems();
+        loadAnalytics();
+    </script>
+</body>
+</html>

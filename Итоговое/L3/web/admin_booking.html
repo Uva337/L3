@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админка: Мероприятия</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f3f4f6; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        input, button { padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; width: 100%; box-sizing: border-box;}
+        button { background: #4f46e5; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #4338ca; }
+        .event-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center;}
+        .badge { background: #e0e7ff; color: #3730a3; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Панель организатора 🎪</h1>
+        
+        <div class="card">
+            <h3>Создать новое мероприятие</h3>
+            <form id="createForm">
+                <input type="text" id="title" placeholder="Название (например: Рок-концерт)" required>
+                <label style="font-size: 0.8em; color: #666;">Дата проведения:</label>
+                <input type="datetime-local" id="date" required>
+                <input type="number" id="spots" placeholder="Общее количество мест (например: 100)" required>
+                <input type="number" id="ttl" placeholder="Время на оплату брони в минутах (например: 1)" value="1" required>
+                <button type="submit">Создать мероприятие</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Управление мероприятиями (Автообновление)</h3>
+            <div id="eventsList">Загрузка...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadEvents() {
+            const res = await fetch('/events');
+            if (!res.ok) return;
+            const events = await res.json();
+            
+            const list = document.getElementById('eventsList');
+            if (events.length === 0) { list.innerHTML = "Мероприятий пока нет."; return; }
+            
+            list.innerHTML = events.map(e => `
+                <div class="event-item">
+                    <div>
+                        <div style="font-size: 1.1em; font-weight: bold;">${e.title}</div>
+                        <div style="color: #666; font-size: 0.9em;">Осталось мест: <b>${e.available_spots}</b> из ${e.total_spots}</div>
+                        <div style="color: #ef4444; font-size: 0.8em;">Сгорание брони: через ${e.booking_ttl_minutes} мин.</div>
+                    </div>
+                    <div class="badge">ID: ${e.id.substring(0, 8)}...</div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('createForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('title').value,
+                date: new Date(document.getElementById('date').value).toISOString(),
+                total_spots: parseInt(document.getElementById('spots').value),
+                booking_ttl_minutes: parseInt(document.getElementById('ttl').value) // Тот самый бонус!
+            };
+            
+            await fetch('/events', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            e.target.reset();
+            document.getElementById('ttl').value = 1; // Сбрасываем обратно на 1 минуту для тестов
+            loadEvents();
+        };
+        
+        loadEvents();
+        setInterval(loadEvents, 3000); // Обновляем админку каждые 3 секунды
+    </script>
+</body>
+</html>
