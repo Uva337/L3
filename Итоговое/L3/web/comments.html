@@ -31,7 +31,6 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Компонент одного комментария (рекурсивный!)
         function CommentNode({ comment, onReply, onDelete }) {
             const [showReplyForm, setShowReplyForm] = useState(false);
             const [replyAuthor, setReplyAuthor] = useState('');
@@ -76,24 +75,21 @@
             );
         }
 
-        // Главное приложение
         function App() {
             const [trees, setTrees] = useState([]);
             const [search, setSearch] = useState('');
             const [newAuthor, setNewAuthor] = useState('');
             const [newText, setNewText] = useState('');
 
-            // Загрузка корневых комментариев и их деревьев
             const loadComments = async () => {
                 const res = await fetch('/comments');
                 const roots = await res.json();
                 
-                // Для красоты сразу подгрузим деревья для всех корней
                 const fullTrees = await Promise.all(
                     roots.map(async (root) => {
                         const treeRes = await fetch(`/comments?parent=${root.id}`);
                         const treeData = await treeRes.json();
-                        return treeData[0]; // Наш API отдает массив с одним корнем-деревом
+                        return treeData[0];
                     })
                 );
                 setTrees(fullTrees);
@@ -110,7 +106,6 @@
                 const res = await fetch(`/comments?search=${encodeURIComponent(search)}`);
                 const searchResults = await res.json();
 
-                // МАГИЯ ЗДЕСЬ: Подгружаем ветки ответов для каждого найденного комментария
                 const fullTrees = await Promise.all(
                     searchResults.map(async (item) => {
                         const treeRes = await fetch(`/comments?parent=${item.id}`);
