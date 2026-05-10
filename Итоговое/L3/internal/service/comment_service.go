@@ -46,7 +46,6 @@ func (s *CommentService) Create(ctx context.Context, parentID *string, author, t
 	return c, nil
 }
 
-// GetTree — магия сборки дерева. Берет плоский список из БД и связывает через ParentID
 func (s *CommentService) GetTree(ctx context.Context, rootID string) (*model.Comment, error) {
 	flatComments, err := s.storage.GetCommentTree(ctx, rootID)
 	if err != nil || len(flatComments) == 0 {
@@ -73,17 +72,14 @@ func (s *CommentService) GetTree(ctx context.Context, rootID string) (*model.Com
 	return root, nil
 }
 
-// GetRoots — получает список корневых комментариев (для главной страницы обсуждения)
 func (s *CommentService) GetRoots(ctx context.Context, limit, offset int) ([]*model.Comment, error) {
 	return s.storage.GetRootComments(ctx, limit, offset, true)
 }
 
-// Search — полнотекстовый поиск
 func (s *CommentService) Search(ctx context.Context, keyword string) ([]*model.Comment, error) {
 	return s.storage.SearchComments(ctx, keyword)
 }
 
-// Delete — удаление (и каскадное удаление ответов благодаря БД)
 func (s *CommentService) Delete(ctx context.Context, id string) error {
 	return s.storage.DeleteComment(ctx, id)
 }
