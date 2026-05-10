@@ -72,20 +72,18 @@
     </div>
 
     <script>
-        // Функция-обертка для fetch, которая автоматически подставляет наш "фейковый" JWT токен
         async function fetchWithAuth(url, options = {}) {
             const user = document.getElementById('username').value || 'Anonymous';
             const role = document.getElementById('userRole').value;
             
             const headers = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${user}:${role}`, // Тот самый токен, который ждет наш Middleware
+                'Authorization': `Bearer ${user}:${role}`,
                 ...options.headers
             };
 
             const response = await fetch(url, { ...options, headers });
             
-            // Если Middleware нас заблокировал
             if (response.status === 403) {
                 const data = await response.json();
                 alert(`⛔ Доступ запрещен!\nРоль '${role}' не имеет прав на это действие.\nСервер ответил: ${data.error}`);
@@ -119,7 +117,7 @@
                     </tr>
                 `).join('');
             } catch (e) {
-                console.log(e); // Ошибка 403 обработается внутри fetchWithAuth
+                console.log(e);
             }
         }
 
@@ -182,7 +180,6 @@
                 history.forEach(h => {
                     let badgeClass = h.action === 'INSERT' ? 'bg-insert' : (h.action === 'UPDATE' ? 'bg-update' : 'bg-delete');
                     
-                    // Показываем что изменилось
                     let changes = '';
                     if (h.action === 'UPDATE') {
                         changes = `<span style="color:#ef4444">${h.old_data}</span> <br>⬇️<br> <span style="color:#10b981">${h.new_data}</span>`;
@@ -207,7 +204,6 @@
             } catch (e) {}
         }
 
-        // При смене роли сразу перезагружаем список (чтобы проверить доступ к просмотру)
         document.getElementById('userRole').onchange = loadItems;
         document.getElementById('username').onchange = loadItems;
 
