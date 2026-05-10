@@ -20,7 +20,6 @@ func NewEventHandler(s *service.EventService) *EventHandler {
 // CreateEvent — POST /events (Создание мероприятия - для админки)
 func (h *EventHandler) CreateEvent(c *ginext.Context) {
 	var req model.Event
-	// Парсим JSON из тела запроса
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ginext.H{"error": "неверный формат запроса"})
 		return
@@ -52,8 +51,6 @@ func (h *EventHandler) GetEvents(c *ginext.Context) {
 func (h *EventHandler) BookSpot(c *ginext.Context) {
 	eventID := c.Param("id")
 
-	// В реальном приложении user_id брался бы из токена авторизации.
-	// Для теста мы просим передать его в JSON.
 	var req struct {
 		UserID string `json:"user_id" binding:"required"`
 	}
@@ -62,10 +59,8 @@ func (h *EventHandler) BookSpot(c *ginext.Context) {
 		return
 	}
 
-	// Вызываем наш атомарный метод!
 	booking, err := h.service.BookSpot(c.Request.Context(), eventID, req.UserID)
 	if err != nil {
-		// StatusConflict (409) отлично подходит для ошибки "Места закончились"
 		c.JSON(http.StatusConflict, ginext.H{"error": err.Error()})
 		return
 	}
