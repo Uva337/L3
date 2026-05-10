@@ -35,8 +35,8 @@ func NewImageWorker(brokers []string, topic, groupID string, storage ImageStorag
 		Brokers:  brokers,
 		GroupID:  groupID,
 		Topic:    topic,
-		MinBytes: 10e3, // 10KB
-		MaxBytes: 10e6, // 10MB
+		MinBytes: 10e3, 
+		MaxBytes: 10e6,
 	})
 
 	return &ImageWorker{
@@ -45,7 +45,7 @@ func NewImageWorker(brokers []string, topic, groupID string, storage ImageStorag
 	}
 }
 
-// Start запускает бесконечный цикл чтения сообщений
+// запускает бесконечный цикл чтения сообщений
 func (w *ImageWorker) Start(ctx context.Context) {
 	log.Println("Image Worker started, listening to Kafka...")
 
@@ -74,7 +74,7 @@ func (w *ImageWorker) Start(ctx context.Context) {
 	}
 }
 
-// processImage выполняет физическую обработку файла
+// выполняет физическую обработку файла
 func (w *ImageWorker) processImage(ctx context.Context, imageID string) error {
 	w.storage.UpdateImageStatus(ctx, imageID, "processing")
 
@@ -97,20 +97,16 @@ func (w *ImageWorker) processImage(ctx context.Context, imageID string) error {
 		return err
 	}
 
-	// ШАГ 1: ДЕЛАЕМ РЕСАЙЗ (уменьшаем ширину до 800px)
 	resizedImg := resize.Resize(800, 0, img, resize.Lanczos3)
 
-	// ШАГ 2: НАКЛАДЫВАЕМ ВОДЯНОЙ ЗНАК
 	watermarkedImg := addWatermark(resizedImg)
 
-	// ШАГ 3: Сохраняем результат
 	out, err := os.Create(processedPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	// Кодируем обратно (обрати внимание, теперь мы используем watermarkedImg)
 	switch imgInfo.Format {
 	case "jpg", "jpeg":
 		err = jpeg.Encode(out, watermarkedImg, &jpeg.Options{Quality: 85})
