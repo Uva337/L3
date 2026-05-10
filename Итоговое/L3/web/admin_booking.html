@@ -63,7 +63,7 @@
                 title: document.getElementById('title').value,
                 date: new Date(document.getElementById('date').value).toISOString(),
                 total_spots: parseInt(document.getElementById('spots').value),
-                booking_ttl_minutes: parseInt(document.getElementById('ttl').value) // Тот самый бонус!
+                booking_ttl_minutes: parseInt(document.getElementById('ttl').value) 
             };
             
             await fetch('/events', {
@@ -73,12 +73,12 @@
             });
             
             e.target.reset();
-            document.getElementById('ttl').value = 1; // Сбрасываем обратно на 1 минуту для тестов
+            document.getElementById('ttl').value = 1;
             loadEvents();
         };
         
         loadEvents();
-        setInterval(loadEvents, 3000); // Обновляем админку каждые 3 секунды
+        setInterval(loadEvents, 3000); 
     </script>
 </body>
 </html>
