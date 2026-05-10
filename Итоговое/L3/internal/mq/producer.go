@@ -7,13 +7,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Producer отвечает за отправку сообщений в RabbitMQ
 type Producer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 }
 
-// NewProducer — конструктор. Подключается к брокеру и создает очередь.
 func NewProducer(url string) (*Producer, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -25,7 +23,7 @@ func NewProducer(url string) (*Producer, error) {
 		return nil, fmt.Errorf("ошибка открытия канала: %w", err)
 	}
 
-	// QueueDeclare создает очередь, если её еще нет
+	// создает очередь, если её еще нет
 	_, err = ch.QueueDeclare(
 		"notifications_queue", // Имя очереди
 		true,                  // durable (очередь переживет перезагрузку RabbitMQ)
@@ -41,7 +39,7 @@ func NewProducer(url string) (*Producer, error) {
 	return &Producer{conn: conn, channel: ch}, nil
 }
 
-// PublishID отправляет ID уведомления в нашу очередь
+// PublishID отправляет ID уведомления в очередь
 func (p *Producer) PublishID(ctx context.Context, id string) error {
 	err := p.channel.PublishWithContext(ctx,
 		"",                    // exchange (используем дефолтный)
@@ -50,13 +48,12 @@ func (p *Producer) PublishID(ctx context.Context, id string) error {
 		false,                 // immediate
 		amqp.Publishing{
 			ContentType:  "text/plain",
-			DeliveryMode: amqp.Persistent, // Сообщение сохранится на диск, чтобы не потеряться
+			DeliveryMode: amqp.Persistent,
 			Body:         []byte(id),
 		})
 	return err
 }
 
-// Close аккуратно закрывает соединения
 func (p *Producer) Close() {
 	if p.channel != nil {
 		p.channel.Close()
