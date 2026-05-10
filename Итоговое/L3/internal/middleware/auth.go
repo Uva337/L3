@@ -33,7 +33,7 @@ func parseFakeToken(authHeader string) (string, string, error) {
 	return tokenData[0], tokenData[1], nil
 }
 
-// AuthMiddleware проверяет наличие прав доступа
+// проверяет наличие прав доступа
 func AuthMiddleware(allowedRoles ...string) ginext.HandlerFunc {
 	return func(c *ginext.Context) {
 		authHeader := c.GetHeader("Authorization")
