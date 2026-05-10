@@ -6,9 +6,8 @@ import (
 	"notification-service/internal/model"
 )
 
-// CreateItem - добавляем товар (Атомарно с передачей username через CTE)
+// добавляем товар
 func (s *PostgresStorage) CreateItem(ctx context.Context, item *model.Item, username string) error {
-	// Добавили FROM setup, чтобы заставить Postgres выполнить set_config
 	query := `
 		WITH setup AS (
 			SELECT set_config('myapp.current_user', $1, true) AS cfg
@@ -20,7 +19,7 @@ func (s *PostgresStorage) CreateItem(ctx context.Context, item *model.Item, user
 	return s.db.QueryRow(ctx, query, username, item.Name, item.Quantity, item.Price).Scan(&item.ID, &item.CreatedAt)
 }
 
-// GetItems - получаем все товары
+// получаем все товары
 func (s *PostgresStorage) GetItems(ctx context.Context) ([]*model.Item, error) {
 	query := `SELECT id, name, quantity, price, created_at FROM items ORDER BY created_at DESC`
 	rows, err := s.db.Query(ctx, query)
@@ -40,9 +39,7 @@ func (s *PostgresStorage) GetItems(ctx context.Context) ([]*model.Item, error) {
 	return items, nil
 }
 
-// UpdateItem - обновляем (Атомарно)
 func (s *PostgresStorage) UpdateItem(ctx context.Context, id string, item *model.Item, username string) error {
-	// Добавили FROM setup
 	query := `
 		WITH setup AS (
 			SELECT set_config('myapp.current_user', $1, true) AS cfg
@@ -56,9 +53,8 @@ func (s *PostgresStorage) UpdateItem(ctx context.Context, id string, item *model
 	return err
 }
 
-// DeleteItem - удаляем (Атомарно)
+// удаляем
 func (s *PostgresStorage) DeleteItem(ctx context.Context, id string, username string) error {
-	// Добавили USING setup
 	query := `
 		WITH setup AS (
 			SELECT set_config('myapp.current_user', $1, true) AS cfg
@@ -71,7 +67,7 @@ func (s *PostgresStorage) DeleteItem(ctx context.Context, id string, username st
 	return err
 }
 
-// GetItemHistory - достаем логи из той самой таблицы, которую заполняют триггеры
+// достаем логи из той самой таблицы, которую заполняют триггеры
 func (s *PostgresStorage) GetItemHistory(ctx context.Context, itemID string) ([]*model.ItemHistory, error) {
 	query := `
 		SELECT id, item_id, action, 
