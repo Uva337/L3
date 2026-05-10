@@ -25,11 +25,9 @@ func NewEventService(s EventStorage) *EventService {
 }
 
 func (s *EventService) CreateEvent(ctx context.Context, e *model.Event) error {
-	// По умолчанию, если TTL не задан, ставим 15 минут
 	if e.BookingTTLMinutes <= 0 {
 		e.BookingTTLMinutes = 15
 	}
-	// При создании доступные места равны всем местам
 	e.AvailableSpots = e.TotalSpots
 	return s.storage.CreateEvent(ctx, e)
 }
