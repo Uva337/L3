@@ -13,7 +13,6 @@ import (
 // Набор символов для коротких ссылок
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-// generateShortCode генерирует случайную строку заданной длины
 func generateShortCode(length int) string {
 	b := make([]byte, length)
 	for i := range b {
@@ -51,7 +50,6 @@ func NewURLShortenerService(s URLStorage, c URLCache) *URLShortenerService {
 	}
 }
 
-// создает новую короткую ссылку
 func (s *URLShortenerService) ShortenURL(ctx context.Context, originalURL, customAlias string) (*model.URL, error) {
 	shortCode := customAlias
 	if shortCode == "" {
@@ -75,9 +73,7 @@ func (s *URLShortenerService) ShortenURL(ctx context.Context, originalURL, custo
 	return url, nil
 }
 
-// ProcessRedirect теперь работает с Redis и PostgreSQL
 func (s *URLShortenerService) ProcessRedirect(ctx context.Context, shortCode, userAgent string) (string, error) {
-	// 1. Сначала проверяем Redis (Cache Hit)
 	cachedURL, err := s.cache.GetURL(ctx, shortCode)
 	if err == nil && cachedURL != "" {
 
@@ -85,16 +81,13 @@ func (s *URLShortenerService) ProcessRedirect(ctx context.Context, shortCode, us
 		return cachedURL, nil
 	}
 
-	// 2. Если в кэше нет — идем в базу
 	url, err := s.storage.GetURLByCode(ctx, shortCode)
 	if err != nil {
 		return "", err
 	}
 
-	// 3. Сохраняем в кэш для будущих запросов
 	_ = s.cache.SetURL(ctx, shortCode, url.OriginalURL)
 
-	// 4. Записываем аналитику асинхронно
 	s.recordClick(url.ID, userAgent)
 
 	return url.OriginalURL, nil
