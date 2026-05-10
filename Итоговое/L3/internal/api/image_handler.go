@@ -19,7 +19,7 @@ func NewImageHandler(s *service.ImageService) *ImageHandler {
 	return &ImageHandler{service: s}
 }
 
-// Upload — POST /upload (Принимает файл от пользователя)
+// Upload POST /upload (Принимает файл от пользователя)
 func (h *ImageHandler) Upload(c *ginext.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -36,7 +36,7 @@ func (h *ImageHandler) Upload(c *ginext.Context) {
 	c.JSON(http.StatusAccepted, img)
 }
 
-// GetImage — GET /image/:id (Отдает готовую картинку)
+// GetImage GET /image/:id (Отдает готовую картинку)
 func (h *ImageHandler) GetImage(c *ginext.Context) {
 	id := c.Param("id")
 
@@ -60,7 +60,7 @@ func (h *ImageHandler) GetImage(c *ginext.Context) {
 	c.File(path)
 }
 
-// Delete — DELETE /image/:id (Удаление)
+// Delete DELETE /image/:id (Удаление)
 func (h *ImageHandler) Delete(c *ginext.Context) {
 	id := c.Param("id")
 
@@ -72,7 +72,7 @@ func (h *ImageHandler) Delete(c *ginext.Context) {
 	c.JSON(http.StatusOK, ginext.H{"status": "успешно удалено"})
 }
 
-// GetAll — GET /images (Отдает список всех картинок для UI)
+// GetAll GET /images (Отдает список всех картинок для UI)
 func (h *ImageHandler) GetAll(c *ginext.Context) {
 	images, err := h.service.GetAll(c.Request.Context())
 	if err != nil {
