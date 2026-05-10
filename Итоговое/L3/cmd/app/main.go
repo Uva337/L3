@@ -19,14 +19,14 @@ import (
 )
 
 func main() {
-	// 1. Загружаем конфигурацию
+	// 1. Загрузка конфигурации
 	var cfg config.Config
 	if err := cleanenvport.Load(&cfg); err != nil {
 		fmt.Printf("failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 2. Инициализируем логгер
+	// 2. Инициализация логгер
 	log, err := logger.InitLogger(
 		logger.SlogEngine,
 		"notification-service",
@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Подключаемся к PostgreSQL
+	// 3. Подключение к PostgreSQL
 	db, err := pgxdriver.New(
 		cfg.Postgres.DSN,
 		log,
@@ -51,10 +51,10 @@ func main() {
 	defer db.Close()
 	log.Info("Successfully connected to PostgreSQL!")
 
-	// 4. Инициализируем хранилище
+	// 4. Инициализация хранилища
 	repo := storage.NewPostgresStorage(db)
 
-	// 5. Подключаемся к RabbitMQ
+	// 5. Подключение к RabbitMQ
 	rabbitURL := "amqp://guest:guest@localhost:5672/"
 	producer, err := mq.NewProducer(rabbitURL)
 	if err != nil {
@@ -64,7 +64,7 @@ func main() {
 	defer producer.Close()
 	log.Info("Successfully connected to RabbitMQ!")
 
-	// 5.5 Инициализируем и запускаем Воркер
+	// 5.1 Инициализация и запуск Воркера
 	notificationWorker, err := worker.NewNotificationWorker(rabbitURL, repo, cfg.Telegram.Token, cfg.Telegram.ChatID)
 	if err != nil {
 		log.Error("Failed to init worker", "error", err)
@@ -73,48 +73,46 @@ func main() {
 	defer notificationWorker.Close()
 	go notificationWorker.Start()
 
-	// 5.6 Инициализируем и запускаем Планировщик
+	// 5.2 Инициализация и запуск Планировщик
 	notificationScheduler := worker.NewScheduler(repo, producer)
 	go notificationScheduler.Start()
 
-	// 5.7 Инициализируем хранилище Redis (Наш сверхбыстрый кэш)
+	// 5.3 Инициализация и запуск Redis
 	redisStorage := storage.NewRedisStorage(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
 	log.Info("Successfully initialized Redis cache!")
 
-	// Создаем папки для картинок, если их еще нет (чтобы не было ошибок при сохранении)
 	os.MkdirAll("uploads/originals", 0755)
 	os.MkdirAll("uploads/processed", 0755)
 
 	kafkaBrokers := []string{"localhost:9092"}
 	kafkaTopic := "image-processing"
 
-	// 5.8 Инициализируем Kafka Продюсер
+	// 5.4 Инициализация Kafka Продюсер
 	kafkaProducer := mq.NewKafkaProducer(kafkaBrokers, kafkaTopic)
 	defer kafkaProducer.Close()
 
-	// 5.9 Инициализируем и запускаем Kafka Воркер (в отдельном потоке)
+	// 5.5 Инициализация и запуск Kafka Воркер
 	imageWorker := worker.NewImageWorker(kafkaBrokers, kafkaTopic, "image-group-1", repo)
 	defer imageWorker.Close()
 	go imageWorker.Start(context.Background())
 
-	// 6. Инициализируем бизнес-логику (передаем БД, Брокера И КЭШ REDIS)
+	// 6. Инициализация бизнес-логику
 	notifierService := service.NewNotifierService(repo, producer, redisStorage)
 
-	// 6.5 Инициализируем бизнес-логику (Сервис коротких ссылок)
+	// 6.1 Инициализация бизнес-логику
 	urlService := service.NewURLShortenerService(repo, redisStorage)
 
-	// 6.6 Инициализируем бизнес-логику (Сервис комментариев)
+	// 6.2 Инициализация бизнес-логику (Сервис комментариев)
 	commentService := service.NewCommentService(repo)
 
-	// 6.7 НОВЫЙ СЕРВИС (Сервис изображений)
+	// 6.3 (Сервис изображений)
 	imageService := service.NewImageService(repo, kafkaProducer)
 
 	bookingCron := worker.NewBookingCron(repo, 5*time.Second)
 	go bookingCron.Start()
 	defer bookingCron.Stop()
-	// -------------------------
 
-	// 7. Инициализируем API (передаем сервисы)
+	// 7. Инициализация API (передаем сервисы)
 	handler := api.NewHandler(notifierService)
 	urlHandler := api.NewURLHandler(urlService)
 	commentHandler := api.NewCommentHandler(commentService)
@@ -129,7 +127,6 @@ func main() {
 	warehouseService := service.NewWarehouseService(repo)
 	warehouseHandler := api.NewWarehouseHandler(warehouseService)
 
-	// Передаем все 4 хендлера в роутер
 	router := api.SetupRouter(handler, urlHandler, commentHandler, imageHandler, eventHandler, saleHandler, warehouseHandler, log)
 
 	// 8. Запускаем HTTP-сервер
