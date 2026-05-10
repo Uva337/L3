@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Интерфейсы для зависимостей (чтобы сервис не зависел от конкретных реализаций)
 type ImageStorage interface {
 	SaveImage(ctx context.Context, img *model.Image) error
 	GetImage(ctx context.Context, id string) (*model.Image, error)
@@ -36,9 +35,7 @@ func NewImageService(s ImageStorage, p ImageTaskProducer) *ImageService {
 	return &ImageService{storage: s, producer: p}
 }
 
-// Upload принимает файл, сохраняет его на диск, пишет в БД и кидает задачу в Kafka
 func (s *ImageService) Upload(ctx context.Context, file *multipart.FileHeader) (*model.Image, error) {
-	// 1. Генерируем уникальный ID и проверяем расширение
 	id := uuid.New().String()
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	format := strings.TrimPrefix(ext, ".")
@@ -47,14 +44,13 @@ func (s *ImageService) Upload(ctx context.Context, file *multipart.FileHeader) (
 		return nil, fmt.Errorf("неподдерживаемый формат: %s (разрешены jpg, png, gif)", format)
 	}
 	if format == "jpeg" {
-		format = "jpg" // Приводим к единому стандарту
+		format = "jpg"
 	}
 
-	// Формируем имя файла и путь сохранения
 	filename := id + ext
 	originalPath := filepath.Join("uploads", "originals", filename)
 
-	// 2. Физически сохраняем файл на диск
+	// 2. Физически сохранение файла на диск
 	src, err := file.Open()
 	if err != nil {
 		return nil, fmt.Errorf("ошибка открытия файла: %w", err)
@@ -81,7 +77,6 @@ func (s *ImageService) Upload(ctx context.Context, file *multipart.FileHeader) (
 	}
 
 	if err := s.storage.SaveImage(ctx, img); err != nil {
-		// Если БД упала, удаляем мусорный файл с диска
 		os.Remove(originalPath)
 		return nil, fmt.Errorf("ошибка сохранения в БД: %w", err)
 	}
