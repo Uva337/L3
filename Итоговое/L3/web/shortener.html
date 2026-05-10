@@ -33,12 +33,10 @@
         const { useState } = React;
 
         function App() {
-            // Состояния для создания ссылки
             const [origUrl, setOrigUrl] = useState('');
             const [alias, setAlias] = useState('');
             const [shortData, setShortData] = useState(null);
 
-            // Состояния для аналитики
             const [analyticsCode, setAnalyticsCode] = useState('');
             const [analytics, setAnalytics] = useState(null);
 
@@ -63,7 +61,6 @@
             const handleAnalytics = async (e) => {
                 e.preventDefault();
                 try {
-                    // Очищаем ввод от полного URL, если пользователь вставил его целиком
                     let code = analyticsCode.replace('http://localhost:8080/s/', '').trim();
                     const res = await fetch(`/analytics/${code}`);
                     const data = await res.json();
