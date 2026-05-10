@@ -17,17 +17,16 @@ type NotificationWorker struct {
 	chatID   string
 }
 
-// NewNotificationWorker — подключается к RabbitMQ
+// подключается к RabbitMQ
 func NewNotificationWorker(url string, repo *storage.PostgresStorage, botToken string, chatID string) (*NotificationWorker, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения воркера к RabbitMQ: %w", err)
 	}
-	// Сохраняем ключи внутри воркера
 	return &NotificationWorker{conn: conn, repo: repo, botToken: botToken, chatID: chatID}, nil
 }
 
-// Start — запускает бесконечный цикл прослушивания очереди
+//запускает бесконечный цикл прослушивания очереди
 func (w *NotificationWorker) Start() error {
 	ch, err := w.conn.Channel()
 	if err != nil {
@@ -35,7 +34,6 @@ func (w *NotificationWorker) Start() error {
 	}
 	defer ch.Close()
 
-	// Подписываемся на очередь
 	msgs, err := ch.Consume(
 		"notifications_queue", "", false, false, false, false, nil,
 	)
@@ -45,12 +43,10 @@ func (w *NotificationWorker) Start() error {
 
 	fmt.Println("⏳ Воркер запущен и ждет сообщения из RabbitMQ...")
 
-	// Читаем сообщения по мере их поступления
 	for d := range msgs {
 		id := string(d.Body)
 		fmt.Printf("\n📥 Воркер поймал задачу! ID: %s\n", id)
 
-		// 1. Достаем полный текст сообщения из БД по ID
 		notification, err := w.repo.GetByID(context.Background(), id)
 		if err != nil {
 			fmt.Printf("❌ Ошибка: не нашли уведомление в БД: %v\n", err)
@@ -58,7 +54,6 @@ func (w *NotificationWorker) Start() error {
 			continue
 		}
 
-		// 2. Отправляем реальное сообщение в Telegram
 		fmt.Println("🚀 Отправляем сообщение в Telegram...")
 
 		tgURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", w.botToken)
@@ -66,15 +61,11 @@ func (w *NotificationWorker) Start() error {
 
 		resp, err := http.Post(tgURL, "application/json", strings.NewReader(tgBody))
 
-		// Если сеть упала ИЛИ Telegram ответил ошибкой
 		if err != nil || resp.StatusCode != http.StatusOK {
 			fmt.Printf("❌ Ошибка отправки ТГ! Откладываем задачу %s (Exponential Backoff)...\n", id)
 
-			// 1. Идем в базу и сдвигаем время на будущее
 			w.repo.RescheduleNotification(context.Background(), id)
 
-			// 2. Удаляем ЭТУ неудачную задачу из RabbitMQ (чтобы не зацикливалась).
-			// Планировщик сам закинет её обратно в очередь, когда придет новое время!
 			d.Ack(false)
 
 			if resp != nil {
@@ -84,7 +75,6 @@ func (w *NotificationWorker) Start() error {
 		}
 		resp.Body.Close()
 
-		// 3. Если ТГ принял сообщение, меняем статус в БД
 		err = w.repo.UpdateStatus(context.Background(), id, "sent")
 		if err != nil {
 			fmt.Printf("❌ Ошибка БД: %v\n", err)
@@ -92,7 +82,6 @@ func (w *NotificationWorker) Start() error {
 			continue
 		}
 
-		// 4. Подтверждаем RabbitMQ, что всё прошло успешно
 		fmt.Printf("✅ Уведомление %s успешно отправлено в ТГ!\n", id)
 		d.Ack(false)
 	}
@@ -100,7 +89,6 @@ func (w *NotificationWorker) Start() error {
 	return nil
 }
 
-// Close — закрывает соединение
 func (w *NotificationWorker) Close() {
 	if w.conn != nil {
 		w.conn.Close()
