@@ -17,7 +17,6 @@ func NewWarehouseHandler(s *service.WarehouseService) *WarehouseHandler {
 	return &WarehouseHandler{service: s}
 }
 
-// Вспомогательная функция: достаем имя пользователя из контекста (положили в AuthMiddleware)
 func getUsername(c *ginext.Context) string {
 	username, exists := c.Get("username")
 	if !exists {
