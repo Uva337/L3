@@ -59,7 +59,7 @@ func SetupRouter(
 	r.GET("/events/:id/bookings", eventHandler.GetEventBookings)
 	r.POST("/bookings/:id/confirm", eventHandler.ConfirmBooking)
 
-	// --- Ручки сервиса Аналитики и Трекера
+	// Ручки сервиса Аналитики и Трекера
 	r.POST("/items", saleHandler.CreateItem)
 	r.GET("/items", saleHandler.GetItems)
 	r.PUT("/items/:id", saleHandler.UpdateItem)
@@ -73,7 +73,7 @@ func SetupRouter(
 	// Создавать и изменять могут только админ и менеджер
 	r.POST("/api/warehouse/items", middleware.AuthMiddleware("admin", "manager"), warehouseHandler.CreateItem)
 	r.PUT("/api/warehouse/items/:id", middleware.AuthMiddleware("admin", "manager"), warehouseHandler.UpdateItem)
-
+	
 	// Удалять имеет право ТОЛЬКО админ
 	r.DELETE("/api/warehouse/items/:id", middleware.AuthMiddleware("admin"), warehouseHandler.DeleteItem)
 
