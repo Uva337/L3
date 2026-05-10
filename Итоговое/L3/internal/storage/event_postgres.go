@@ -35,12 +35,9 @@ func (s *PostgresStorage) GetAllEvents(ctx context.Context) ([]*model.Event, err
 	return events, nil
 }
 
-// безопасно бронирует место, используя транзакцию и блокировку строки
 func (s *PostgresStorage) BookSpot(ctx context.Context, eventID, userID string) (*model.Booking, error) {
 	var ttl int
 
-	// МАГИЯ АТОМАРНОСТИ: Мы пытаемся отнять 1 место только если available_spots > 0.
-	// База данных сама заблокирует строку на микросекунду при UPDATE. Гонок не будет!
 	updateQuery := `
 		UPDATE events 
 		SET available_spots = available_spots - 1 
@@ -52,7 +49,6 @@ func (s *PostgresStorage) BookSpot(ctx context.Context, eventID, userID string) 
 		return nil, fmt.Errorf("нет свободных мест или мероприятие не найдено")
 	}
 
-	// Если дошли сюда, значит мы гарантированно "захватили" 1 место
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Minute)
 	b := &model.Booking{
 		EventID:   eventID,
@@ -70,7 +66,6 @@ func (s *PostgresStorage) BookSpot(ctx context.Context, eventID, userID string) 
 	return b, nil
 }
 
-// подтверждает оплату (меняет статус)
 func (s *PostgresStorage) ConfirmBooking(ctx context.Context, bookingID string) error {
 	query := `UPDATE bookings SET status = 'confirmed' WHERE id = $1 AND status = 'pending'`
 	tag, err := s.db.Exec(ctx, query, bookingID)
@@ -83,20 +78,17 @@ func (s *PostgresStorage) ConfirmBooking(ctx context.Context, bookingID string) 
 	return nil
 }
 
-// Он ищет все просроченные неоплаченные брони, отменяет их и возвращает места обратно в events.
 
 func (s *PostgresStorage) CancelExpiredBookings(ctx context.Context) (int, error) {
-	// Берем точное время из Go
 	now := time.Now()
 
-	// Передаем $1 вместо NOW()
 	query := `
 		UPDATE bookings 
 		SET status = 'cancelled' 
 		WHERE status = 'pending' AND expires_at <= $1
 		RETURNING event_id
 	`
-	rows, err := s.db.Query(ctx, query, now) // Передали now сюда
+	rows, err := s.db.Query(ctx, query, now)
 	if err != nil {
 		return 0, err
 	}
@@ -114,7 +106,6 @@ func (s *PostgresStorage) CancelExpiredBookings(ctx context.Context) (int, error
 		cancelledCount++
 	}
 
-	// Возвращаем места обратно
 	for evID, count := range eventCounts {
 		_, _ = s.db.Exec(ctx, `UPDATE events SET available_spots = available_spots + $1 WHERE id = $2`, count, evID)
 	}
@@ -122,7 +113,6 @@ func (s *PostgresStorage) CancelExpiredBookings(ctx context.Context) (int, error
 	return cancelledCount, nil
 }
 
-// возвращает все активные брони для конкретного мероприятия (для админки)
 func (s *PostgresStorage) GetEventBookings(ctx context.Context, eventID string) ([]*model.Booking, error) {
 	query := `SELECT id, event_id, user_id, status, expires_at, created_at FROM bookings WHERE event_id = $1 AND status != 'cancelled' ORDER BY created_at`
 	rows, err := s.db.Query(ctx, query, eventID)
