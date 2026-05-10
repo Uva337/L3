@@ -17,7 +17,7 @@ type BookingCron struct {
 	done     chan bool
 }
 
-// NewBookingCron создает новый планировщик.
+// создает новый планировщик.
 func NewBookingCron(storage BookingCronStorage, interval time.Duration) *BookingCron {
 	return &BookingCron{
 		storage:  storage,
@@ -26,7 +26,7 @@ func NewBookingCron(storage BookingCronStorage, interval time.Duration) *Booking
 	}
 }
 
-// Start запускает бесконечный цикл проверок
+// запускает бесконечный цикл проверок
 func (c *BookingCron) Start() {
 	c.ticker = time.NewTicker(c.interval)
 	log.Printf("Booking Cron started, checking for expired bookings every %v...", c.interval)
@@ -34,9 +34,8 @@ func (c *BookingCron) Start() {
 	for {
 		select {
 		case <-c.done:
-			return // Получили сигнал об остановке
+			return
 		case <-c.ticker.C:
-			// Срабатывает каждый раз, когда тикает таймер
 			ctx := context.Background()
 			count, err := c.storage.CancelExpiredBookings(ctx)
 			if err != nil {
@@ -48,7 +47,7 @@ func (c *BookingCron) Start() {
 	}
 }
 
-// Stop аккуратно останавливает крон при выключении сервера
+// останавливает крон при выключении сервера
 func (c *BookingCron) Stop() {
 	if c.ticker != nil {
 		c.ticker.Stop()
