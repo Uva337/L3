@@ -7,7 +7,7 @@ import (
 	"notification-service/internal/model"
 )
 
-// CreateSale создает новую запись
+// создает новую запись
 func (s *PostgresStorage) CreateSale(ctx context.Context, sale *model.Sale) error {
 	query := `
 		INSERT INTO sales (type, amount, category, sale_date) 
@@ -17,7 +17,7 @@ func (s *PostgresStorage) CreateSale(ctx context.Context, sale *model.Sale) erro
 	return s.db.QueryRow(ctx, query, sale.Type, sale.Amount, sale.Category, sale.SaleDate).Scan(&sale.ID, &sale.CreatedAt)
 }
 
-// GetSales возвращает все записи с базовой сортировкой
+// возвращает все записи с базовой сортировкой
 func (s *PostgresStorage) GetSales(ctx context.Context) ([]*model.Sale, error) {
 	query := `SELECT id, type, amount, category, sale_date, created_at FROM sales ORDER BY sale_date DESC`
 	rows, err := s.db.Query(ctx, query)
@@ -37,7 +37,7 @@ func (s *PostgresStorage) GetSales(ctx context.Context) ([]*model.Sale, error) {
 	return sales, nil
 }
 
-// UpdateSale обновляет запись по ID
+// обновляет запись по ID
 func (s *PostgresStorage) UpdateSale(ctx context.Context, id string, sale *model.Sale) error {
 	query := `
 		UPDATE sales 
@@ -48,7 +48,7 @@ func (s *PostgresStorage) UpdateSale(ctx context.Context, id string, sale *model
 	return err
 }
 
-// DeleteSale удаляет запись
+// удаляет запись
 func (s *PostgresStorage) DeleteSale(ctx context.Context, id string) error {
 	_, err := s.db.Exec(ctx, `DELETE FROM sales WHERE id = $1`, id)
 	return err
