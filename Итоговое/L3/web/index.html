@@ -55,7 +55,6 @@
         const { useState } = React;
 
         function App() {
-            // Состояние (State) нашего приложения
             const [tasks, setTasks] = useState([]); 
             const [isLoading, setIsLoading] = useState(false);
             
@@ -64,7 +63,6 @@
             const [channel, setChannel] = useState('telegram');
             const [scheduledAt, setScheduledAt] = useState('');
 
-            // Создание задачи
             const handleCreate = async (e) => {
                 e.preventDefault();
                 setIsLoading(true);
@@ -78,7 +76,6 @@
                     const data = await res.json();
                     
                     if (res.ok) {
-                        // Магия React: мы просто добавляем задачу в массив, а React сам перерисует экран
                         setTasks(prev => [{ ...data, status: 'pending' }, ...prev]);
                     } else {
                         alert('Ошибка: ' + data.error);
@@ -89,19 +86,16 @@
                 setIsLoading(false);
             };
 
-            // Обновление статуса
             const handleCheckStatus = async (id) => {
                 try {
                     const res = await fetch(`/notify/${id}`);
                     const data = await res.json();
                     if (res.ok) {
-                        // Магия React: обновляем статус конкретной задачи в массиве
                         setTasks(prev => prev.map(t => t.id === id ? data : t));
                     }
                 } catch (err) {}
             };
 
-            // Отмена задачи
             const handleCancel = async (id) => {
                 try {
                     const res = await fetch(`/notify/${id}`, { method: 'DELETE' });
