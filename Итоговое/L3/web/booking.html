@@ -37,7 +37,7 @@
     </div>
 
     <script>
-        let myBookings = []; // Храним брони в памяти страницы для теста
+        let myBookings = [];
 
         async function loadEvents() {
             const res = await fetch('/events');
@@ -79,7 +79,7 @@
             const booking = await res.json();
             myBookings.push(booking);
             renderBookings();
-            loadEvents(); // Мгновенно обновляем счетчик мест
+            loadEvents(); 
         }
 
         async function confirmBooking(bookingId) {
@@ -112,7 +112,7 @@
         }
 
         loadEvents();
-        setInterval(loadEvents, 2000); // Опрашиваем сервер каждые 2 секунды
+        setInterval(loadEvents, 2000);
     </script>
 </body>
 </html>
