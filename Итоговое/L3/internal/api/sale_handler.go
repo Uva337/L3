@@ -45,16 +45,13 @@ func (h *SaleHandler) GetItems(c *ginext.Context) {
 		sales = []*model.Sale{}
 	}
 
-	// БОНУС: Экспорт в CSV
 	if c.Query("format") == "csv" {
 		c.Writer.Header().Set("Content-Type", "text/csv")
 		c.Writer.Header().Set("Content-Disposition", `attachment;filename="transactions.csv"`)
 
 		writer := csv.NewWriter(c.Writer)
-		// Пишем заголовки
 		writer.Write([]string{"ID", "Тип", "Сумма", "Категория", "Дата"})
 
-		// Пишем данные
 		for _, s := range sales {
 			writer.Write([]string{
 				s.ID,
@@ -101,7 +98,6 @@ func (h *SaleHandler) GetAnalytics(c *ginext.Context) {
 
 	from, err := time.Parse("2006-01-02", fromStr)
 	if err != nil {
-		// Если не передали, берем за последний месяц
 		from = time.Now().AddDate(0, -1, 0)
 	}
 
@@ -110,7 +106,6 @@ func (h *SaleHandler) GetAnalytics(c *ginext.Context) {
 		to = time.Now()
 	}
 
-	// Чтобы включить весь день "to", сдвигаем конец на конец дня
 	to = to.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
 	analytics, err := h.service.GetAnalytics(c.Request.Context(), from, to)
