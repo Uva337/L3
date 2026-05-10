@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// --- ИНТЕРФЕЙСЫ ---
 
 type Storage interface {
 	Create(ctx context.Context, n *model.Notification) error
@@ -21,26 +20,22 @@ type Broker interface {
 	PublishID(ctx context.Context, id string) error
 }
 
-// ДОБАВИЛИ: Интерфейс для нашего кэша
 type Cache interface {
 	SetNotification(ctx context.Context, notif *model.Notification) error
 	GetNotification(ctx context.Context, id string) (*model.Notification, error)
 }
 
-// --- СЕРВИС ---
 
 type NotifierService struct {
 	storage Storage
 	broker  Broker
-	cache   Cache // ДОБАВИЛИ: поле для кэша
+	cache   Cache
 }
 
-// ДОБАВИЛИ: Теперь конструктор принимает еще и кэш (третий аргумент)
 func NewNotifierService(s Storage, b Broker, c Cache) *NotifierService {
 	return &NotifierService{storage: s, broker: b, cache: c}
 }
 
-// CreateNotification — основная логика создания уведомления
 func (s *NotifierService) CreateNotification(ctx context.Context, message, recipient, channel string, scheduledAt time.Time) (*model.Notification, error) {
 
 	notification := &model.Notification{
@@ -61,7 +56,7 @@ func (s *NotifierService) CreateNotification(ctx context.Context, message, recip
 	return notification, nil
 }
 
-// GetStatus — логика получения уведомления (ТУТ ТЕПЕРЬ ТУРБО-РЕЖИМ)
+// логика получения уведомления
 func (s *NotifierService) GetStatus(ctx context.Context, id string) (*model.Notification, error) {
 
 	notif, err := s.cache.GetNotification(ctx, id)
@@ -81,7 +76,7 @@ func (s *NotifierService) GetStatus(ctx context.Context, id string) (*model.Noti
 	return notif, nil
 }
 
-// CancelNotification — логика отмены
+// логика отмены
 func (s *NotifierService) CancelNotification(ctx context.Context, id string) error {
 	return s.storage.Cancel(ctx, id)
 }
