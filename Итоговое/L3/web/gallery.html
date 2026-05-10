@@ -36,7 +36,6 @@
             const [file, setFile] = useState(null);
             const [uploading, setUploading] = useState(false);
 
-            // Функция загрузки списка картинок
             const loadImages = async () => {
                 const res = await fetch('/images');
                 if (res.ok) {
@@ -45,14 +44,12 @@
                 }
             };
 
-            // Опрашиваем сервер каждые 2 секунды (Long Polling на минималках)
             useEffect(() => {
                 loadImages();
                 const interval = setInterval(loadImages, 2000);
                 return () => clearInterval(interval);
             }, []);
 
-            // Обработчик загрузки файла
             const handleUpload = async (e) => {
                 e.preventDefault();
                 if (!file) return;
@@ -65,11 +62,11 @@
                 
                 setFile(null);
                 setUploading(false);
-                e.target.reset(); // Очищаем форму
-                loadImages(); // Сразу обновляем список
+                e.target.reset();
+                loadImages();
             };
 
-            // Обработчик удаления
+
             const handleDelete = async (id) => {
                 if(confirm('Точно удалить?')) {
                     await fetch(`/image/${id}`, { method: 'DELETE' });
